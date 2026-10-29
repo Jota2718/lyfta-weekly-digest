@@ -38,22 +38,27 @@ def get_required_env_vars() -> dict:
     Valida y recupera las variables de entorno requeridas.
     Termina el proceso si falta alguna variable.
     """
-    required = ["LYFTA_API_KEY", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD"]
-    config = {}
-    missing = []
+    lyfta_key = os.getenv("LYFTA_API_KEY") or os.getenv("LYFTA")
+    gmail_addr = os.getenv("GMAIL_ADDRESS")
+    gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
 
-    for var in required:
-        val = os.getenv(var)
-        if not val or not val.strip():
-            missing.append(var)
-        else:
-            config[var] = val.strip()
+    missing = []
+    if not lyfta_key or not lyfta_key.strip():
+        missing.append("LYFTA_API_KEY (o LYFTA)")
+    if not gmail_addr or not gmail_addr.strip():
+        missing.append("GMAIL_ADDRESS")
+    if not gmail_pass or not gmail_pass.strip():
+        missing.append("GMAIL_APP_PASSWORD")
 
     if missing:
         logger.error("Faltan las siguientes variables de entorno requeridas: %s", ", ".join(missing))
         sys.exit(1)
 
-    return config
+    return {
+        "LYFTA_API_KEY": lyfta_key.strip(),
+        "GMAIL_ADDRESS": gmail_addr.strip(),
+        "GMAIL_APP_PASSWORD": gmail_pass.strip(),
+    }
 
 
 def fetch_workouts(api_key: str, from_date_iso: str, to_date_iso: str) -> list:
