@@ -138,7 +138,8 @@ def fetch_workouts(api_key: str, from_date_iso: str, to_date_iso: str) -> list:
 
     params = {
         "from": from_date_iso,
-        "to": to_date_iso
+        "to": to_date_iso,
+        "limit": 100
     }
 
     logger.info("Consultando la API de Lyfta (%s a %s)...", from_date_iso, to_date_iso)
@@ -195,20 +196,33 @@ def fetch_workouts(api_key: str, from_date_iso: str, to_date_iso: str) -> list:
     return workouts
 
 
-def parse_workouts(workouts_raw: list) -> list:
+def parse_workouts(
+    workouts_raw: list,
+    from_date_str: str = "",
+    to_date_str: str = ""
+) -> list:
     """
-    Estructura y calcula métricas clave para cada entrenamiento:
+    Estructura y calcula métricas clave para cada entrenamiento dentro del rango de 7 días:
     - Título de la rutina
     - Fecha
     - Volumen total (kg)
     - Duración
     - Lista de ejercicios con sus respectivas series y repeticiones
+    Solo incluye entrenamientos realizados dinámicamente en el período (sean 0, 1, 2, 5 o más).
     """
     parsed_workouts = []
 
     for item in workouts_raw:
         title = item.get("title") or item.get("name") or "Entrenamiento sin título"
         date_str = item.get("workout_perform_date") or item.get("date") or item.get("created_at") or ""
+
+        # Verificación estricta de fecha para asegurar que pertenece a la última semana
+        if date_str and from_date_str and to_date_str:
+            workout_day = date_str[:10]
+            if workout_day < from_date_str or workout_day > to_date_str:
+                logger.info("Descartando entrenamiento fuera de la semana: '%s' del %s", title, workout_day)
+                continue
+
         duration_sec = item.get("duration_seconds")
         api_total_volume = item.get("total_volume") or item.get("totalLiftedWeight")
 
@@ -663,7 +677,11 @@ def main() -> None:
     )
 
     # 4. Procesar y calcular volumen/series/repeticiones
-    parsed_workouts = parse_workouts(workouts_raw)
+    parsed_workouts = parse_workouts(
+        workouts_raw,
+        from_date_str=from_date,
+        to_date_str=to_date
+    )
 
     # 5. Generar análisis y recomendaciones con Gemini AI
     gemini_recommendations = generate_gemini_recommendations(
