@@ -429,117 +429,131 @@ def build_email_contents(
     text_content = "\n".join(text_lines)
 
     # -----------------------------
-    # 2. VERSIÓN HTML RESPONSIVE
+    # 2. VERSIÓN HTML RESPONSIVE (OPTIMIZADA PARA MÓVILES / S23 FE)
     # -----------------------------
     # Tarjeta de Gemini AI
     gemini_html_card = ""
     if gemini_recommendations:
         rendered_md = format_markdown_to_html(gemini_recommendations)
         gemini_html_card = f"""
-        <div style="margin: 20px 24px 0 24px; background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%); border: 1px solid #bbf7d0; border-left: 5px solid #10b981; border-radius: 10px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-            <div style="margin-bottom: 12px;">
-                <span style="background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 12px; display: inline-block;">Google Gemini 3.8 Flash</span>
-                <h3 style="margin: 6px 0 0 0; font-size: 16px; font-weight: 800; color: #065f46;">🤖 Análisis & Recomendaciones de tu Coach IA</h3>
+        <div style="margin: 12px 10px 0 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #10b981; border-radius: 8px; padding: 14px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div style="margin-bottom: 8px;">
+                <span style="background-color: #10b981; color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 7px; border-radius: 10px; display: inline-block;">Google Gemini 3.8 Flash</span>
+                <h3 style="margin: 6px 0 0 0; font-size: 15px; font-weight: 800; color: #065f46;">🤖 Análisis & Recomendaciones de tu Coach IA</h3>
             </div>
-            <div style="color: #1e293b; font-size: 14px; line-height: 1.65;">
+            <div style="color: #1e293b; font-size: 13px; line-height: 1.55;">
                 {rendered_md}
             </div>
         </div>
         """
+
     cards_html = ""
     if total_workouts == 0:
         cards_html = """
-        <div style="background-color: #f8f9fa; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 24px; text-align: center; color: #64748b; margin: 20px 0;">
-            <p style="margin: 0; font-size: 16px;">No se registraron entrenamientos en los últimos 7 días.</p>
-            <p style="margin: 8px 0 0 0; font-size: 13px;">¡Buen momento para planificar la próxima semana!</p>
+        <div style="background-color: #f8f9fa; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 20px 14px; text-align: center; color: #64748b; margin: 12px 0;">
+            <p style="margin: 0; font-size: 15px; font-weight: 600;">No se registraron entrenamientos esta semana.</p>
+            <p style="margin: 6px 0 0 0; font-size: 13px;">¡Buen momento para planificar la próxima semana!</p>
         </div>
         """
     else:
         for w in parsed_workouts:
-            exercises_rows = ""
+            exercises_items_html = ""
             for ex in w["exercises"]:
                 sets_badges = "".join(
-                    f'<span style="display:inline-block; background-color:#eff6ff; color:#1d4ed8; font-size:12px; padding:3px 8px; border-radius:4px; margin:2px 4px 2px 0;">'
-                    f'{s["reps"]} reps @ {s["weight"]}kg'
+                    f'<span style="display:inline-block; background-color:#eff6ff; border:1px solid #dbeafe; color:#1d4ed8; font-size:11px; font-weight:600; padding:2px 6px; border-radius:5px; margin:2px 3px 2px 0;">'
+                    f'{s["reps"]}r × {s["weight"]:g}kg'
                     f'</span>'
                     for s in ex["sets"]
-                ) or '<span style="color:#94a3b8; font-size:12px;">Sin series registradas</span>'
+                ) or '<span style="color:#94a3b8; font-size:11px;">Sin series registradas</span>'
 
-                exercises_rows += f"""
-                <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 10px 12px; font-weight: 600; color: #1e293b; font-size: 14px; vertical-align: top; width: 40%;">{ex['name']}</td>
-                    <td style="padding: 10px 12px; font-size: 13px; color: #334155; vertical-align: top;">{sets_badges}</td>
-                </tr>
+                exercises_items_html += f"""
+                <div style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9;">
+                    <div style="font-weight: 700; color: #0f172a; font-size: 13px; margin-bottom: 4px; word-break: break-word;">
+                        {ex['name']}
+                    </div>
+                    <div style="line-height: 1.6;">
+                        {sets_badges}
+                    </div>
+                </div>
                 """
 
             cards_html += f"""
-            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; padding: 14px 18px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                        <h3 style="margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.3px;">{w['title']}</h3>
-                        <span style="font-size: 13px; color: #94a3b8; margin-top: 4px;">{w['date'][:10] if w['date'] else ''}</span>
-                    </div>
-                    <div style="margin-top: 8px; font-size: 13px; color: #cbd5e1;">
-                        <span>⏱ Duración: <strong>{format_duration(w['duration_seconds'])}</strong></span>
-                        <span style="margin: 0 10px;">•</span>
-                        <span>📊 Volumen: <strong>{w['total_volume']:,.1f} kg</strong></span>
+            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                <!-- Header de la rutina -->
+                <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; padding: 12px 14px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+                        <tr>
+                            <td align="left" style="vertical-align: top;">
+                                <h3 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; color: #ffffff;">{w['title']}</h3>
+                            </td>
+                            <td align="right" style="vertical-align: top; white-space: nowrap; font-size: 11px; color: #94a3b8; padding-left: 8px;">
+                                {w['date'][:10] if w['date'] else ''}
+                            </td>
+                        </tr>
+                    </table>
+                    <div style="margin-top: 6px; font-size: 12px; color: #cbd5e1;">
+                        <span>⏱ <strong>{format_duration(w['duration_seconds'])}</strong></span>
+                        <span style="margin: 0 6px;">•</span>
+                        <span>📊 <strong>{w['total_volume']:,.0f} kg</strong></span>
                     </div>
                 </div>
-                <div style="padding: 12px 16px;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                        <thead>
-                            <tr style="border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 12px; text-transform: uppercase;">
-                                <th style="padding: 8px 12px;">Ejercicio</th>
-                                <th style="padding: 8px 12px;">Series y Repeticiones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {exercises_rows}
-                        </tbody>
-                    </table>
+                <!-- Lista de ejercicios adaptable a móviles -->
+                <div style="padding: 0;">
+                    {exercises_items_html}
                 </div>
             </div>
             """
 
     html_content = f"""
-    <!DOCTYPE html>
-    <html lang="es">
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html lang="es" xmlns="http://www.w3.org/1999/xhtml">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Resumen Semanal de Entrenamientos</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+        <meta name="format-detection" content="telephone=no" />
+        <title>Resumen Semanal Lyfta</title>
+        <style type="text/css">
+            body {{ margin: 0 !important; padding: 0 !important; width: 100% !important; }}
+            * {{ box-sizing: border-box; }}
+            @media only screen and (max-width: 480px) {{
+                .main-card {{ border-radius: 0 !important; border-left: none !important; border-right: none !important; }}
+                .mobile-padding {{ padding: 12px 10px !important; }}
+                .metric-box {{ padding: 8px 2px !important; }}
+                .metric-num {{ font-size: 18px !important; }}
+            }}
+        </style>
     </head>
-    <body style="margin:0; padding:20px; background-color:#f1f5f9; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#0f172a;">
-        <div style="max-width: 680px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+    <body style="margin: 0; padding: 6px 2px; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; color: #0f172a;">
+        <div class="main-card" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);">
             
             <!-- HEADER -->
-            <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); padding: 28px 24px; text-align: center; color: #ffffff;">
-                <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">🏋️ Resumen Semanal Lyfta</h1>
-                <p style="margin: 8px 0 0 0; font-size: 14px; color: #e0f2fe; opacity: 0.95;">
-                    Período: {from_date_str} &mdash; {to_date_str}
+            <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); padding: 22px 16px; text-align: center; color: #ffffff;">
+                <h1 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.3px;">🏋️ Resumen Semanal Lyfta</h1>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #e0f2fe; opacity: 0.95;">
+                    {from_date_str} &mdash; {to_date_str}
                 </p>
             </div>
 
-            <!-- METRIC CARDS -->
-            <div style="padding: 20px 24px 10px 24px; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                <table style="width: 100%; border-collapse: collapse;">
+            <!-- METRIC CARDS RESPONSIVE -->
+            <div style="padding: 10px 8px; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; table-layout: fixed;">
                     <tr>
-                        <td style="width: 33.3%; padding: 8px; text-align: center;">
-                            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 8px;">
-                                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600;">Sesiones</div>
-                                <div style="font-size: 22px; font-weight: 800; color: #0284c7; margin-top: 4px;">{total_workouts}</div>
+                        <td width="33.3%" align="center" style="padding: 3px;">
+                            <div class="metric-box" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 7px; padding: 9px 4px; text-align: center;">
+                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.3px;">Sesiones</div>
+                                <div class="metric-num" style="font-size: 19px; font-weight: 800; color: #0284c7; margin-top: 2px;">{total_workouts}</div>
                             </div>
                         </td>
-                        <td style="width: 33.3%; padding: 8px; text-align: center;">
-                            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 8px;">
-                                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600;">Volumen Total</div>
-                                <div style="font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 4px;">{grand_total_volume:,.0f} <span style="font-size: 12px; font-weight: normal; color: #64748b;">kg</span></div>
+                        <td width="33.3%" align="center" style="padding: 3px;">
+                            <div class="metric-box" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 7px; padding: 9px 4px; text-align: center;">
+                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.3px;">Volumen</div>
+                                <div class="metric-num" style="font-size: 19px; font-weight: 800; color: #0f172a; margin-top: 2px;">{grand_total_volume:,.0f} <span style="font-size: 10px; font-weight: 600; color: #64748b;">kg</span></div>
                             </div>
                         </td>
-                        <td style="width: 33.3%; padding: 8px; text-align: center;">
-                            <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 8px;">
-                                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600;">Ejercicios</div>
-                                <div style="font-size: 22px; font-weight: 800; color: #10b981; margin-top: 4px;">{total_exercises_count}</div>
+                        <td width="33.3%" align="center" style="padding: 3px;">
+                            <div class="metric-box" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 7px; padding: 9px 4px; text-align: center;">
+                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.3px;">Ejercicios</div>
+                                <div class="metric-num" style="font-size: 19px; font-weight: 800; color: #10b981; margin-top: 2px;">{total_exercises_count}</div>
                             </div>
                         </td>
                     </tr>
@@ -550,19 +564,21 @@ def build_email_contents(
             {gemini_html_card}
 
             <!-- WORKOUT DETAILS -->
-            <div style="padding: 24px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #1e293b; font-weight: 700;">Detalle de Rutinas</h2>
+            <div class="mobile-padding" style="padding: 16px 12px 10px 12px;">
+                <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b; font-weight: 700;">Detalle de Rutinas</h2>
                 {cards_html}
             </div>
 
             <!-- FOOTER -->
-            <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 24px; text-align: center; font-size: 12px; color: #94a3b8;">
-                Generado automáticamente por tu pipeline CI/CD en la nube &bull; Lyfta API Sync
+            <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 16px; text-align: center; font-size: 11px; color: #94a3b8;">
+                Generado automáticamente en la nube &bull; Lyfta API Sync
             </div>
         </div>
     </body>
     </html>
     """
+
+    return text_content, html_content
 
     return text_content, html_content
 
