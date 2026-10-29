@@ -43,16 +43,25 @@ Para permitir que el script envíe correos desde tu cuenta de Gmail:
 4. Genera tu nuevo token de acceso personal (**Personal Access Token / API Key**).
 5. Copia el token generado. Esta será tu variable `LYFTA_API_KEY`.
 
+### 3. `GEMINI_API_KEY` (Recomendaciones y Coaching con Inteligencia Artificial)
+Para que Google Gemini (`gemini-3.8-flash`) analice tus rutinas, sobrecarga progresiva y recuperación:
+
+1. Entra en Google AI Studio: [https://aistudio.google.com/](https://aistudio.google.com/)
+2. Inicia sesión con tu cuenta de Google.
+3. Haz clic en **Get API key** > **Create API key**.
+4. Copia tu clave generada (empieza por `AIzaSy...`). Esta será tu variable `GEMINI_API_KEY`.
+
 ---
 
 ## ⚙️ Configuración de Secretos en GitHub
 
 1. En tu repositorio de GitHub, haz clic en **Settings** (pestaña superior).
 2. En el menú lateral izquierdo, ve a **Secrets and variables** > **Actions**.
-3. Haz clic en el botón verde **New repository secret** y añade los siguientes 3 secretos:
-   - Nombre: `LYFTA_API_KEY` | Valor: *Tu token de Lyfta*
-   - Nombre: `GMAIL_ADDRESS` | Valor: *Tu correo Gmail (ej. juan@gmail.com)*
-   - Nombre: `GMAIL_APP_PASSWORD` | Valor: *Tu contraseña de aplicación de 16 caracteres*
+3. Añade los siguientes secretos:
+   - `LYFTA_API_KEY`: Tu token de Lyfta.
+   - `GMAIL_ADDRESS`: Tu correo Gmail.
+   - `GMAIL_APP_PASSWORD`: Tu contraseña de aplicación de 16 caracteres.
+   - `GEMINI_API_KEY`: Tu clave de Google AI Studio para coaching y recomendaciones con IA.
 4. ¡Listo! El workflow [.github/workflows/schedule.yml](file:///.github/workflows/schedule.yml) se ejecutará automáticamente todos los **domingos a las 08:00 AM UTC**.
 5. **Para probarlo de inmediato sin esperar al domingo:**
    - Ve a la pestaña **Actions** en tu repositorio de GitHub.

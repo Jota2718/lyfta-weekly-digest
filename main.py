@@ -12,6 +12,18 @@ from email.message import EmailMessage
 import smtplib
 import requests
 
+# Integración con Google Gemini API (google-genai SDK moderno)
+try:
+    from google import genai
+except ImportError:
+    genai = None
+
+# Convertidor Markdown a HTML para correos
+try:
+    import markdown
+except ImportError:
+    markdown = None
+
 # Cargar variables de entorno desde .env si existe (útil para desarrollo local)
 try:
     from dotenv import load_dotenv
@@ -85,6 +97,12 @@ def get_required_env_vars() -> dict:
         gmail_pass = gmail_pass.split("GMAIL_APP_PASSWORD=", 1)[1].strip()
     gmail_pass = gmail_pass.replace(" ", "").strip("\"' ")
 
+    raw_gemini = os.getenv("GEMINI_API_KEY")
+    gemini_key = clean_env_val(raw_gemini)
+    if "GEMINI_API_KEY=" in gemini_key:
+        gemini_key = gemini_key.split("GEMINI_API_KEY=", 1)[1].strip()
+    gemini_key = gemini_key.strip("\"' ")
+
     missing = []
     if not lyfta_key:
         missing.append("LYFTA_API_KEY (o LYFTA)")
@@ -101,6 +119,7 @@ def get_required_env_vars() -> dict:
         "LYFTA_API_KEY": lyfta_key,
         "GMAIL_ADDRESS": gmail_addr,
         "GMAIL_APP_PASSWORD": gmail_pass,
+        "GEMINI_API_KEY": gemini_key,
     }
 
 
@@ -249,10 +268,85 @@ def format_duration(seconds: int | None) -> str:
     return f"{minutes}m"
 
 
+def format_markdown_to_html(md_text: str) -> str:
+    """Convierte texto Markdown a HTML limpio para correos electrónicos."""
+    if markdown is not None:
+        return markdown.markdown(md_text, extensions=["extra"])
+    import html
+    escaped = html.escape(md_text)
+    return escaped.replace("\n", "<br>")
+
+
+def generate_gemini_recommendations(
+    parsed_workouts: list,
+    gemini_api_key: str | None
+) -> str | None:
+    """
+    Utiliza el modelo gemini-3.8-flash mediante el SDK oficial google-genai para
+    generar análisis de sobrecarga progresiva, volumen y recomendaciones de recuperación.
+    """
+    if not gemini_api_key:
+        logger.info("GEMINI_API_KEY no detectada. Se omitirán las recomendaciones con IA.")
+        return None
+
+    if genai is None:
+        logger.warning("Librería google-genai no disponible. Omitiendo análisis con IA.")
+        return None
+
+    logger.info("Generando análisis y recomendaciones con Google Gemini (gemini-3.8-flash)...")
+
+    # Resumen estructurado para el prompt
+    total_workouts = len(parsed_workouts)
+    grand_total_volume = sum(w["total_volume"] for w in parsed_workouts)
+
+    summary_lines = [
+        f"- Sesiones totales en los últimos 7 días: {total_workouts}",
+        f"- Volumen total acumulado: {grand_total_volume:,.1f} kg"
+    ]
+
+    for idx, w in enumerate(parsed_workouts, 1):
+        exercises_str = []
+        for ex in w["exercises"]:
+            sets_desc = ", ".join(f"{s['reps']}x{s['weight']}kg" for s in ex["sets"])
+            exercises_str.append(f"{ex['name']} [{sets_desc}]")
+        summary_lines.append(f"  * Rutina {idx} ('{w['title']}'): " + "; ".join(exercises_str))
+
+    context_str = "\n".join(summary_lines)
+
+    prompt = f"""
+Eres un entrenador de fuerza, acondicionamiento y biomecánica deportiva de alto nivel.
+Analiza el siguiente historial de entrenamientos registrado durante los últimos 7 días en la app Lyfta:
+
+{context_str}
+
+Entrega un análisis motivador, profesional y accionable estructurado en exactamente estas 4 secciones concisas:
+1. 💡 **Evaluación del Rendimiento:** Análisis del volumen acumulado, balance y esfuerzo semanal.
+2. 🎯 **Puntos Fuertes:** Lo más destacable de la semana (adherencia, ejercicios clave o intensidad).
+3. ⚡ **Estrategia para la Próxima Semana:** Recomendaciones específicas de sobrecarga progresiva (+peso o +reps) o grupos musculares que convendría priorizar.
+4. 🥗 **Recuperación y Nutrición:** Un consejo práctico aplicable (sueño, hidratación, aporte proteico).
+
+Formato: Usa viñetas limpias en Markdown y emojis. Mantén un largo conciso y directo para leerse fácilmente en un correo electrónico.
+"""
+
+    try:
+        client = genai.Client(api_key=gemini_api_key)
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=prompt
+        )
+        recommendations = response.text
+        logger.info("¡Recomendaciones de Gemini AI generadas con éxito!")
+        return recommendations
+    except Exception as e:
+        logger.error("Error al consultar la API de Gemini: %s", e)
+        return None
+
+
 def build_email_contents(
     parsed_workouts: list,
     from_date_str: str,
-    to_date_str: str
+    to_date_str: str,
+    gemini_recommendations: str | None = None
 ) -> tuple[str, str]:
     """
     Genera el contenido del correo en formato texto plano y HTML responsive.
@@ -274,6 +368,13 @@ def build_email_contents(
         f"- Ejercicios realizados: {total_exercises_count}",
         "-" * 60,
     ]
+
+    if gemini_recommendations:
+        text_lines.append("\n" + "=" * 60)
+        text_lines.append(" 🤖 ANÁLISIS Y RECOMENDACIONES DE GEMINI AI")
+        text_lines.append("=" * 60)
+        text_lines.append(gemini_recommendations.strip())
+        text_lines.append("-" * 60)
 
     if total_workouts == 0:
         text_lines.append("\nNo se registraron entrenamientos en los últimos 7 días.")
@@ -299,6 +400,21 @@ def build_email_contents(
     # -----------------------------
     # 2. VERSIÓN HTML RESPONSIVE
     # -----------------------------
+    # Tarjeta de Gemini AI
+    gemini_html_card = ""
+    if gemini_recommendations:
+        rendered_md = format_markdown_to_html(gemini_recommendations)
+        gemini_html_card = f"""
+        <div style="margin: 20px 24px 0 24px; background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%); border: 1px solid #bbf7d0; border-left: 5px solid #10b981; border-radius: 10px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+            <div style="margin-bottom: 12px;">
+                <span style="background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 12px; display: inline-block;">Google Gemini 3.8 Flash</span>
+                <h3 style="margin: 6px 0 0 0; font-size: 16px; font-weight: 800; color: #065f46;">🤖 Análisis & Recomendaciones de tu Coach IA</h3>
+            </div>
+            <div style="color: #1e293b; font-size: 14px; line-height: 1.65;">
+                {rendered_md}
+            </div>
+        </div>
+        """
     cards_html = ""
     if total_workouts == 0:
         cards_html = """
@@ -399,6 +515,9 @@ def build_email_contents(
                 </table>
             </div>
 
+            <!-- GEMINI AI COACHING CARD -->
+            {gemini_html_card}
+
             <!-- WORKOUT DETAILS -->
             <div style="padding: 24px;">
                 <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #1e293b; font-weight: 700;">Detalle de Rutinas</h2>
@@ -488,7 +607,13 @@ def main() -> None:
     # 4. Procesar y calcular volumen/series/repeticiones
     parsed_workouts = parse_workouts(workouts_raw)
 
-    # 5. Generar formato de correo
+    # 5. Generar análisis y recomendaciones con Gemini AI
+    gemini_recommendations = generate_gemini_recommendations(
+        parsed_workouts=parsed_workouts,
+        gemini_api_key=config.get("GEMINI_API_KEY")
+    )
+
+    # 6. Generar formato de correo
     from_readable = seven_days_ago_utc.strftime("%d/%m/%Y")
     to_readable = now_utc.strftime("%d/%m/%Y")
     subject = f"🏋️ Resumen Semanal Lyfta ({from_readable} - {to_readable})"
@@ -496,10 +621,11 @@ def main() -> None:
     text_body, html_body = build_email_contents(
         parsed_workouts=parsed_workouts,
         from_date_str=from_readable,
-        to_date_str=to_readable
+        to_date_str=to_readable,
+        gemini_recommendations=gemini_recommendations
     )
 
-    # 6. Enviar correo vía Gmail SMTP
+    # 7. Enviar correo vía Gmail SMTP
     send_email(
         gmail_address=config["GMAIL_ADDRESS"],
         gmail_app_password=config["GMAIL_APP_PASSWORD"],
