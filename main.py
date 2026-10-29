@@ -28,9 +28,26 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Constantes de configuración
-LYFTA_API_BASE_URL = "https://my.lyfta.app/community/api/v1/workouts"
+# La API oficial de Lyfta expone los endpoints en /api/v1/workouts
+LYFTA_API_BASE_URL = "https://my.lyfta.app/api/v1/workouts"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
+
+
+def safe_float(val, default: float = 0.0) -> float:
+    """Convierte de forma segura a float soportando strings vacíos o None."""
+    try:
+        return float(val) if val not in (None, "") else default
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_int(val, default: int = 0) -> int:
+    """Convierte de forma segura a int soportando strings vacíos o floats."""
+    try:
+        return int(float(val)) if val not in (None, "") else default
+    except (ValueError, TypeError):
+        return default
 
 
 def clean_env_val(val: str | None) -> str:
@@ -122,6 +139,16 @@ def fetch_workouts(api_key: str, from_date_iso: str, to_date_iso: str) -> list:
         logger.error("Error 401 No Autorizado: LYFTA_API_KEY no es válida o expiró.")
         response.raise_for_status()
 
+    # Si la respuesta es HTML en lugar de JSON, loguear para diagnóstico
+    content_type = response.headers.get("Content-Type", "")
+    if "text/html" in content_type:
+        logger.error(
+            "La API retornó una página HTML en lugar de JSON (Status %s). URL consultada: %s",
+            response.status_code,
+            response.url
+        )
+        raise ValueError(f"Respuesta inesperada no-JSON de la API (Status {response.status_code})")
+
     if not response.ok:
         logger.error(
             "La API de Lyfta respondió con código de estado %s: %s",
@@ -130,13 +157,17 @@ def fetch_workouts(api_key: str, from_date_iso: str, to_date_iso: str) -> list:
         )
         response.raise_for_status()
 
-    payload = response.json()
+    try:
+        payload = response.json()
+    except Exception as e:
+        logger.error("Error al decodificar JSON de la API. Contenido recibido: %s", response.text[:300])
+        raise
 
-    # Normalizar respuesta (la API puede retornar directamente una lista o un dict con clave 'data' / 'workouts')
+    # Normalizar respuesta (la API de Lyfta retorna un dict con clave 'workouts' o 'data', o una lista)
     if isinstance(payload, list):
         workouts = payload
     elif isinstance(payload, dict):
-        workouts = payload.get("data") or payload.get("workouts") or []
+        workouts = payload.get("workouts") or payload.get("data") or []
     else:
         logger.warning("Formato de respuesta inesperado de la API: %s", type(payload))
         workouts = []
@@ -160,20 +191,21 @@ def parse_workouts(workouts_raw: list) -> list:
         title = item.get("title") or item.get("name") or "Entrenamiento sin título"
         date_str = item.get("workout_perform_date") or item.get("date") or item.get("created_at") or ""
         duration_sec = item.get("duration_seconds")
-        api_total_volume = item.get("total_volume")
+        api_total_volume = item.get("total_volume") or item.get("totalLiftedWeight")
 
         calculated_volume = 0.0
         exercises_list = []
 
         raw_exercises = item.get("exercises") or []
         for ex in raw_exercises:
-            ex_name = ex.get("name") or "Ejercicio"
+            # Lyfta usa 'excercise_name' en su API o 'name'
+            ex_name = ex.get("excercise_name") or ex.get("name") or "Ejercicio"
             ex_sets = []
 
             for s in ex.get("sets", []):
-                weight = float(s.get("weight") or 0.0)
-                reps = int(s.get("reps") or 0)
-                set_type = s.get("set_type", "working")
+                weight = safe_float(s.get("weight"))
+                reps = safe_int(s.get("reps"))
+                set_type = s.get("set_type") or ("working" if s.get("set_type_id") == "1" else "set")
                 set_volume = weight * reps
                 calculated_volume += set_volume
 
@@ -182,7 +214,7 @@ def parse_workouts(workouts_raw: list) -> list:
                     "set_type": set_type,
                     "weight": weight,
                     "reps": reps,
-                    "rpe": s.get("rpe"),
+                    "rpe": s.get("rpe") or s.get("rir"),
                     "volume": set_volume
                 })
 
@@ -193,7 +225,7 @@ def parse_workouts(workouts_raw: list) -> list:
             })
 
         # Usar el volumen de la API si viene provisto, sino el calculado
-        total_volume = float(api_total_volume) if api_total_volume is not None else calculated_volume
+        total_volume = safe_float(api_total_volume, calculated_volume)
 
         parsed_workouts.append({
             "title": title,
