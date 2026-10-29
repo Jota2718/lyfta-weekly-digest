@@ -596,11 +596,51 @@ def send_email(
         raise
 
 
+def check_chile_schedule() -> bool:
+    """
+    Si el script se ejecuta mediante el cron programado de GitHub Actions (schedule),
+    valida si en la zona horaria 'America/Santiago' es sábado y son las 21 horas (9:00 PM).
+    Esto compensa automáticamente los cambios de horario de verano (UTC-3) e invierno (UTC-4) en Chile.
+    Si se ejecuta manualmente (workflow_dispatch o localmente), se procesa siempre.
+    """
+    event_name = os.getenv("GITHUB_EVENT_NAME")
+    if event_name != "schedule":
+        logger.info("Ejecución manual o local detectada (evento: %s). Se procesa sin filtro de hora.", event_name or "local")
+        return True
+
+    try:
+        from zoneinfo import ZoneInfo
+        cl_tz = ZoneInfo("America/Santiago")
+    except Exception as e:
+        logger.warning("No se pudo cargar la zona horaria America/Santiago (%s). Continuando ejecución.", e)
+        return True
+
+    now_cl = datetime.now(cl_tz)
+    logger.info("Hora actual en Chile (America/Santiago): %s (%s, %02d:%02d hrs)",
+                now_cl.strftime("%Y-%m-%d"),
+                now_cl.strftime("%A"),
+                now_cl.hour,
+                now_cl.minute)
+
+    # 5 = Sábado en datetime.weekday() (0=Lunes, 6=Domingo)
+    if now_cl.weekday() == 5 and now_cl.hour == 21:
+        logger.info("¡Coincidencia horaria confirmada! Son las 9:00 PM de un sábado en Chile. Ejecutando resumen...")
+        return True
+
+    logger.info("Filtro horario: Actualmente no son las 9:00 PM del sábado en Chile (%02d:%02d hrs). Se finaliza esta ejecución programada sin enviar correo.",
+                now_cl.hour, now_cl.minute)
+    return False
+
+
 def main() -> None:
     """
     Función principal que coordina la extracción, procesamiento y envío.
     """
     logger.info("Iniciando proceso de extracción y resumen semanal de entrenamientos...")
+
+    # 0. Verificar si corresponde ejecutar según la zona horaria de Chile
+    if not check_chile_schedule():
+        sys.exit(0)
 
     # 1. Validar variables de entorno
     config = get_required_env_vars()

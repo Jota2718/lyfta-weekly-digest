@@ -9,11 +9,11 @@ Automatización en Python con **GitHub Actions** para extraer semanalmente tu hi
 ```text
 ├── .github/
 │   └── workflows/
-│       └── schedule.yml       # Workflow programado de GitHub Actions (Domingos 08:00 UTC)
+│       └── schedule.yml       # Workflow programado (Sábados 9:00 PM hora de Chile con ajuste DST automático)
 ├── .env.example               # Plantilla de variables de entorno para pruebas locales
 ├── .gitignore                 # Archivos y secretos ignorados por git
-├── main.py                    # Script principal de extracción, procesamiento y envío SMTP
-├── requirements.txt           # Dependencias de Python
+├── main.py                    # Script principal de extracción, Gemini AI y envío SMTP
+├── requirements.txt           # Dependencias de Python (requests, google-genai, markdown, tzdata)
 └── README.md                  # Documentación completa y guía de configuración
 ```
 

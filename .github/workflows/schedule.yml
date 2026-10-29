@@ -2,9 +2,12 @@ name: Weekly Lyfta Workout Digest
 
 on:
   schedule:
-    # Ejecutar todos los domingos a las 08:00 AM UTC (minuto 0, hora 8, día del mes *, mes *, domingo 0)
-    - cron: '0 8 * * 0'
-  # Permite ejecutar manualmente el pipeline desde la pestaña 'Actions' de GitHub
+    # Se ejecuta a las 00:00 UTC y a las 01:00 UTC del Domingo.
+    # Estas dos horas cubren de forma exacta las 21:00 hrs (9:00 PM) del Sábado en Chile:
+    # - En Horario de Verano (UTC-3): 00:00 UTC Domingo = 21:00 CLT Sábado.
+    # - En Horario de Invierno (UTC-4): 01:00 UTC Domingo = 21:00 CLT Sábado.
+    - cron: '0 0,1 * * 0'
+  # Permite ejecutar manualmente el pipeline en cualquier momento desde la pestaña 'Actions'
   workflow_dispatch:
 
 jobs:
@@ -29,5 +32,6 @@ jobs:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS || vars.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           python main.py
