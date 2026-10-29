@@ -659,15 +659,29 @@ def main() -> None:
     # 1. Validar variables de entorno
     config = get_required_env_vars()
 
-    # 2. Calcular rango de fechas (últimos 7 días en formato YYYY-MM-DD requerido por Lyfta)
-    now_utc = datetime.now(timezone.utc)
-    seven_days_ago_utc = now_utc - timedelta(days=7)
+    # 2. Calcular rango de fechas (Ciclo semanal de Domingo a Sábado en hora de Chile)
+    try:
+        from zoneinfo import ZoneInfo
+        now_local = datetime.now(ZoneInfo("America/Santiago"))
+    except Exception:
+        now_local = datetime.now(timezone.utc)
 
-    # Formato requerido por la API de Lyfta: YYYY-MM-DD
-    from_date = seven_days_ago_utc.strftime("%Y-%m-%d")
-    to_date = now_utc.strftime("%Y-%m-%d")
+    today = now_local.date()
 
-    logger.info("Ventana de tiempo: %s -> %s", from_date, to_date)
+    # Si hoy es sábado (el día programado), la semana va exactamente desde el Domingo anterior (hace 6 días) hasta hoy Sábado
+    # Esto cubre exactamente 7 días: Domingo, Lunes, Martes, Miércoles, Jueves, Viernes y Sábado
+    if today.weekday() == 5:  # 5 = Sábado
+        start_date = today - timedelta(days=6)  # Domingo
+        end_date = today                         # Sábado
+    else:
+        # En caso de pruebas manuales entre semana, toma los últimos 7 días terminando hoy
+        start_date = today - timedelta(days=6)
+        end_date = today
+
+    from_date = start_date.strftime("%Y-%m-%d")
+    to_date = end_date.strftime("%Y-%m-%d")
+
+    logger.info("Ventana de la semana (Domingo a Sábado): %s -> %s", from_date, to_date)
 
     # 3. Consultar entrenamientos desde la API de Lyfta
     workouts_raw = fetch_workouts(
@@ -690,9 +704,9 @@ def main() -> None:
     )
 
     # 6. Generar formato de correo
-    from_readable = seven_days_ago_utc.strftime("%d/%m/%Y")
-    to_readable = now_utc.strftime("%d/%m/%Y")
-    subject = f"🏋️ Resumen Semanal Lyfta ({from_readable} - {to_readable})"
+    from_readable = start_date.strftime("%d/%m/%Y")
+    to_readable = end_date.strftime("%d/%m/%Y")
+    subject = f"🏋️ Resumen Semanal Lyfta (Domingo {start_date.strftime('%d/%m')} al Sábado {end_date.strftime('%d/%m')})"
 
     text_body, html_body = build_email_contents(
         parsed_workouts=parsed_workouts,
