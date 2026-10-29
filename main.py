@@ -282,8 +282,9 @@ def generate_gemini_recommendations(
     gemini_api_key: str | None
 ) -> str | None:
     """
-    Utiliza el modelo gemini-3.8-flash mediante el SDK oficial google-genai para
+    Utiliza Google Gemini mediante el SDK oficial google-genai para
     generar análisis de sobrecarga progresiva, volumen y recomendaciones de recuperación.
+    Incluye reintentos y fallback a modelos alternativos en caso de sobrecarga (503).
     """
     if not gemini_api_key:
         logger.info("GEMINI_API_KEY no detectada. Se omitirán las recomendaciones con IA.")
@@ -292,8 +293,6 @@ def generate_gemini_recommendations(
     if genai is None:
         logger.warning("Librería google-genai no disponible. Omitiendo análisis con IA.")
         return None
-
-    logger.info("Generando análisis y recomendaciones con Google Gemini (gemini-3.8-flash)...")
 
     # Resumen estructurado para el prompt
     total_workouts = len(parsed_workouts)
@@ -328,17 +327,36 @@ Entrega un análisis motivador, profesional y accionable estructurado en exactam
 Formato: Usa viñetas limpias en Markdown y emojis. Mantén un largo conciso y directo para leerse fácilmente en un correo electrónico.
 """
 
+    # Modelos en orden de preferencia con fallback automático si uno tiene alta demanda (503)
+    models_to_try = [
+        "gemini-3.8-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+    ]
+
     try:
+        import time
         client = genai.Client(api_key=gemini_api_key)
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt
-        )
-        recommendations = response.text
-        logger.info("¡Recomendaciones de Gemini AI generadas con éxito!")
-        return recommendations
+
+        for model_name in models_to_try:
+            for attempt in range(1, 3):
+                logger.info("Solicitando análisis a Gemini con %s (intento %d/2)...", model_name, attempt)
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        logger.info("¡Recomendaciones de Gemini AI generadas con éxito usando %s!", model_name)
+                        return response.text
+                except Exception as err:
+                    logger.warning("Aviso al consultar %s (intento %d): %s", model_name, attempt, err)
+                    time.sleep(2)
+
+        logger.error("No se pudo obtener respuesta de Gemini tras probar todos los modelos de respaldo.")
+        return None
     except Exception as e:
-        logger.error("Error al consultar la API de Gemini: %s", e)
+        logger.error("Error al inicializar cliente de Gemini: %s", e)
         return None
 
 
