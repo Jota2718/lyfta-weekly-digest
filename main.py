@@ -468,21 +468,21 @@ def main() -> None:
     # 1. Validar variables de entorno
     config = get_required_env_vars()
 
-    # 2. Calcular rango de fechas (últimos 7 días en ISO 8601 UTC)
+    # 2. Calcular rango de fechas (últimos 7 días en formato YYYY-MM-DD requerido por Lyfta)
     now_utc = datetime.now(timezone.utc)
     seven_days_ago_utc = now_utc - timedelta(days=7)
 
-    # Formato ISO requerido por la API de Lyfta
-    from_iso = seven_days_ago_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    to_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Formato requerido por la API de Lyfta: YYYY-MM-DD
+    from_date = seven_days_ago_utc.strftime("%Y-%m-%d")
+    to_date = now_utc.strftime("%Y-%m-%d")
 
-    logger.info("Ventana de tiempo: %s -> %s", from_iso, to_iso)
+    logger.info("Ventana de tiempo: %s -> %s", from_date, to_date)
 
     # 3. Consultar entrenamientos desde la API de Lyfta
     workouts_raw = fetch_workouts(
         api_key=config["LYFTA_API_KEY"],
-        from_date_iso=from_iso,
-        to_date_iso=to_iso
+        from_date_iso=from_date,
+        to_date_iso=to_date
     )
 
     # 4. Procesar y calcular volumen/series/repeticiones
