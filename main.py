@@ -332,11 +332,10 @@ Analiza el siguiente historial de entrenamientos registrado durante los últimos
 
 {context_str}
 
-Entrega un análisis motivador, profesional y accionable estructurado en exactamente estas 4 secciones concisas:
-1. 💡 **Evaluación del Rendimiento:** Análisis del volumen acumulado, balance y esfuerzo semanal.
-2. 🎯 **Puntos Fuertes:** Lo más destacable de la semana (adherencia, ejercicios clave o intensidad).
-3. ⚡ **Estrategia para la Próxima Semana:** Recomendaciones específicas de sobrecarga progresiva (+peso o +reps) o grupos musculares que convendría priorizar.
-4. 🥗 **Recuperación y Nutrición:** Un consejo práctico aplicable (sueño, hidratación, aporte proteico).
+Entrega un análisis motivador, profesional y accionable estructurado en exactamente estas 3 secciones concisas (enfócate 100% en el entrenamiento y los fierros, sin incluir nada de nutrición ni dietas):
+1. 💡 **Evaluación del Rendimiento:** Análisis del volumen acumulado, balance muscular y consistencia semanal.
+2. 🎯 **Puntos Fuertes:** Lo más destacable de la semana (adherencia, ejercicios clave o progresión de intensidad).
+3. ⚡ **Estrategia para la Próxima Semana:** Recomendaciones específicas de sobrecarga progresiva (+peso o +reps en ejercicios concretos) y qué grupos musculares convendría atacar con prioridad.
 
 Formato: Usa viñetas limpias en Markdown y emojis. Mantén un largo conciso y directo para leerse fácilmente en un correo electrónico.
 """
