@@ -26,7 +26,7 @@ jobs:
       - name: Ejecutar script de extracción y envío
         env:
           LYFTA_API_KEY: ${{ secrets.LYFTA_API_KEY || secrets.LYFTA }}
-          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS || vars.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: |
           python main.py
