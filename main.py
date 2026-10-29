@@ -57,7 +57,7 @@ def get_required_env_vars() -> dict:
     return {
         "LYFTA_API_KEY": lyfta_key.strip(),
         "GMAIL_ADDRESS": gmail_addr.strip(),
-        "GMAIL_APP_PASSWORD": gmail_pass.strip(),
+        "GMAIL_APP_PASSWORD": gmail_pass.strip().replace(" ", ""),
     }
 
 
