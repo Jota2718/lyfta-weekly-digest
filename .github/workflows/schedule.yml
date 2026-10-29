@@ -1,0 +1,32 @@
+name: Weekly Lyfta Workout Digest
+
+on:
+  schedule:
+    # Ejecutar todos los domingos a las 08:00 AM UTC (minuto 0, hora 8, día del mes *, mes *, domingo 0)
+    - cron: '0 8 * * 0'
+  # Permite ejecutar manualmente el pipeline desde la pestaña 'Actions' de GitHub
+  workflow_dispatch:
+
+jobs:
+  workout-digest:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.11-alpine
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar dependencias
+        run: |
+          python --version
+          python -m pip install --no-cache-dir --upgrade pip
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Ejecutar script de extracción y envío
+        env:
+          LYFTA_API_KEY: ${{ secrets.LYFTA_API_KEY }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          python main.py
