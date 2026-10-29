@@ -33,21 +33,47 @@ SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
 
+def clean_env_val(val: str | None) -> str:
+    """Elimina saltos de línea, retornos de carro, comillas y espacios accidentales."""
+    if not val:
+        return ""
+    return val.replace("\r", "").replace("\n", "").strip().strip("\"'")
+
+
 def get_required_env_vars() -> dict:
     """
-    Valida y recupera las variables de entorno requeridas.
+    Valida, sanea y recupera las variables de entorno requeridas.
     Termina el proceso si falta alguna variable.
     """
-    lyfta_key = os.getenv("LYFTA_API_KEY") or os.getenv("LYFTA")
-    gmail_addr = os.getenv("GMAIL_ADDRESS")
-    gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
+    raw_lyfta = os.getenv("LYFTA_API_KEY") or os.getenv("LYFTA")
+    raw_gmail_addr = os.getenv("GMAIL_ADDRESS")
+    raw_gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
+
+    lyfta_key = clean_env_val(raw_lyfta)
+    if "LYFTA_API_KEY=" in lyfta_key:
+        lyfta_key = lyfta_key.split("LYFTA_API_KEY=", 1)[1].strip()
+    elif "LYFTA=" in lyfta_key:
+        lyfta_key = lyfta_key.split("LYFTA=", 1)[1].strip()
+    if lyfta_key.lower().startswith("bearer "):
+        lyfta_key = lyfta_key[7:].strip()
+    lyfta_key = lyfta_key.strip("\"' ")
+
+    gmail_addr = clean_env_val(raw_gmail_addr)
+    if "GMAIL_ADDRESS=" in gmail_addr:
+        gmail_addr = gmail_addr.split("GMAIL_ADDRESS=", 1)[1].strip()
+    gmail_addr = gmail_addr.strip("\"' ")
+
+    gmail_pass = clean_env_val(raw_gmail_pass)
+    if "GMAIL_APP_PASSWORD=" in gmail_pass:
+        gmail_pass = gmail_pass.split("GMAIL_APP_PASSWORD=", 1)[1].strip()
+    gmail_pass = gmail_pass.replace(" ", "").strip("\"' ")
 
     missing = []
-    if not lyfta_key or not lyfta_key.strip():
+    if not lyfta_key:
         missing.append("LYFTA_API_KEY (o LYFTA)")
-    if not gmail_addr or not gmail_addr.strip():
+    if not gmail_addr:
         missing.append("GMAIL_ADDRESS")
-    if not gmail_pass or not gmail_pass.strip():
+    if not gmail_pass:
         missing.append("GMAIL_APP_PASSWORD")
 
     if missing:
@@ -55,9 +81,9 @@ def get_required_env_vars() -> dict:
         sys.exit(1)
 
     return {
-        "LYFTA_API_KEY": lyfta_key.strip(),
-        "GMAIL_ADDRESS": gmail_addr.strip(),
-        "GMAIL_APP_PASSWORD": gmail_pass.strip().replace(" ", ""),
+        "LYFTA_API_KEY": lyfta_key,
+        "GMAIL_ADDRESS": gmail_addr,
+        "GMAIL_APP_PASSWORD": gmail_pass,
     }
 
 
@@ -66,8 +92,10 @@ def fetch_workouts(api_key: str, from_date_iso: str, to_date_iso: str) -> list:
     Consulta la API de Lyfta para obtener los entrenamientos entre dos fechas.
     Retorna una lista de entrenamientos.
     """
+    clean_token = api_key.replace("\r", "").replace("\n", "").strip()
+
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {clean_token}",
         "Accept": "application/json",
         "User-Agent": "LyftaWorkoutDigestBot/1.0"
     }
