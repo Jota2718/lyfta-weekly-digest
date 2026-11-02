@@ -20,8 +20,9 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias del sistema y Python
         run: |
+          apk add --no-cache tar
           python --version
           python -m pip install --no-cache-dir --upgrade pip
           pip install --no-cache-dir -r requirements.txt
