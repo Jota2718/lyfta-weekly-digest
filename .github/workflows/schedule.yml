@@ -9,6 +9,15 @@ on:
     - cron: '15 0,1 * * 0'
   # Permite ejecutar manualmente el pipeline en cualquier momento desde la pestaña 'Actions'
   workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Fecha de inicio opcional (YYYY-MM-DD)'
+        required: false
+        default: ''
+      end_date:
+        description: 'Fecha de fin opcional (YYYY-MM-DD)'
+        required: false
+        default: ''
 
 jobs:
   workout-digest:
@@ -56,5 +65,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          CUSTOM_START_DATE: ${{ github.event.inputs.start_date }}
+          CUSTOM_END_DATE: ${{ github.event.inputs.end_date }}
         run: |
           python main.py

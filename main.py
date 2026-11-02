@@ -693,16 +693,24 @@ def main() -> None:
 
     today = now_local.date()
 
-    # Si es sábado, el cierre es hoy. Si es domingo (ej. ejecución retrasada a la madrugada), el cierre fue ayer sábado.
-    if today.weekday() == 5:  # 5 = Sábado
-        end_date = today
-    elif today.weekday() == 6:  # 6 = Domingo
-        end_date = today - timedelta(days=1)
-    else:
-        # En caso de pruebas manuales entre semana, toma los últimos 7 días terminando hoy
-        end_date = today
+    custom_start = os.getenv("CUSTOM_START_DATE")
+    custom_end = os.getenv("CUSTOM_END_DATE")
 
-    start_date = end_date - timedelta(days=6)  # Domingo de inicio
+    if custom_start and custom_end:
+        start_date = datetime.strptime(custom_start.strip(), "%Y-%m-%d").date()
+        end_date = datetime.strptime(custom_end.strip(), "%Y-%m-%d").date()
+        logger.info("Rango de fechas personalizado detectado: %s al %s", start_date, end_date)
+    else:
+        # Si es sábado, el cierre es hoy. Si es domingo (ej. ejecución retrasada a la madrugada), el cierre fue ayer sábado.
+        if today.weekday() == 5:  # 5 = Sábado
+            end_date = today
+        elif today.weekday() == 6:  # 6 = Domingo
+            end_date = today - timedelta(days=1)
+        else:
+            # En caso de pruebas manuales entre semana, toma los últimos 7 días terminando hoy
+            end_date = today
+        start_date = end_date - timedelta(days=6)  # Domingo de inicio
+
     target_sat_str = end_date.strftime("%Y-%m-%d")
 
     # 0. Verificar si corresponde ejecutar según la zona horaria de Chile y prevención de duplicados
@@ -737,7 +745,10 @@ def main() -> None:
     # 6. Generar formato de correo
     from_readable = start_date.strftime("%d/%m/%Y")
     to_readable = end_date.strftime("%d/%m/%Y")
-    subject = f"🏋️ Resumen Semanal Lyfta (Domingo {start_date.strftime('%d/%m')} al Sábado {end_date.strftime('%d/%m')})"
+    dias_es = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
+    start_day_name = dias_es.get(start_date.weekday(), "")
+    end_day_name = dias_es.get(end_date.weekday(), "")
+    subject = f"🏋️ Resumen Semanal Lyfta ({start_day_name} {start_date.strftime('%d/%m')} al {end_day_name} {end_date.strftime('%d/%m')})"
 
     text_body, html_body = build_email_contents(
         parsed_workouts=parsed_workouts,
