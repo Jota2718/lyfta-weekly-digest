@@ -625,16 +625,18 @@ def send_email(
         raise
 
 
-def check_chile_schedule() -> bool:
+def check_chile_schedule(target_sat_str: str) -> bool:
     """
-    Si el script se ejecuta mediante el cron programado de GitHub Actions (schedule),
-    valida si en la zona horaria 'America/Santiago' es sábado y son las 21 horas (9:00 PM).
-    Esto compensa automáticamente los cambios de horario de verano (UTC-3) e invierno (UTC-4) en Chile.
-    Si se ejecuta manualmente (workflow_dispatch o localmente), se procesa siempre.
+    Control de ejecución y prevención de duplicados para el cron semanal:
+    1. Si es ejecución manual (workflow_dispatch o local), se ejecuta siempre.
+    2. En invierno (UTC-4), el primer cron (20:15 hrs) se omite porque aún no son las 21:00 hrs en Chile.
+    3. Si ya se envió el reporte para esta semana objetivo (verificado mediante .sent_marker), se omite el duplicado.
+    4. Si GitHub Actions sufre retrasos en sus servidores y arranca más tarde en la noche o madrugada de domingo,
+       se procesa igualmente para garantizar que el usuario reciba su reporte.
     """
     event_name = os.getenv("GITHUB_EVENT_NAME")
     if event_name != "schedule":
-        logger.info("Ejecución manual o local detectada (evento: %s). Se procesa sin filtro de hora.", event_name or "local")
+        logger.info("Ejecución manual o local detectada (evento: %s). Se procesa sin filtro de horario.", event_name or "local")
         return True
 
     try:
@@ -651,14 +653,26 @@ def check_chile_schedule() -> bool:
                 now_cl.hour,
                 now_cl.minute)
 
-    # 5 = Sábado en datetime.weekday() (0=Lunes, 6=Domingo)
-    if now_cl.weekday() == 5 and now_cl.hour == 21:
-        logger.info("¡Coincidencia horaria confirmada! Son las 9:00 PM de un sábado en Chile. Ejecutando resumen...")
-        return True
+    # Si es sábado antes de las 21:00 hrs (ej. en invierno cuando el cron corre a las 20:15 hrs)
+    if now_cl.weekday() == 5 and now_cl.hour < 21:
+        logger.info("Aún no son las 9:00 PM en Chile (son las %02d:%02d hrs). Esperando al siguiente ciclo de las 21:00 hrs.",
+                    now_cl.hour, now_cl.minute)
+        return False
 
-    logger.info("Filtro horario: Actualmente no son las 9:00 PM del sábado en Chile (%02d:%02d hrs). Se finaliza esta ejecución programada sin enviar correo.",
-                now_cl.hour, now_cl.minute)
-    return False
+    # Verificar si el reporte para este sábado objetivo ya fue enviado previamente
+    marker_file = ".sent_marker"
+    if os.path.exists(marker_file):
+        try:
+            with open(marker_file, "r", encoding="utf-8") as f:
+                saved_target = f.read().strip()
+            if saved_target == target_sat_str:
+                logger.info("El reporte semanal para la semana cerrada el %s ya fue enviado con éxito. Omitiendo ejecución duplicada.", target_sat_str)
+                return False
+        except Exception as e:
+            logger.warning("No se pudo leer el archivo marcador %s: %s", marker_file, e)
+
+    logger.info("¡Ventana de ejecución válida para el cierre del %s! Procediendo a generar y enviar el reporte...", target_sat_str)
+    return True
 
 
 def main() -> None:
@@ -667,11 +681,7 @@ def main() -> None:
     """
     logger.info("Iniciando proceso de extracción y resumen semanal de entrenamientos...")
 
-    # 0. Verificar si corresponde ejecutar según la zona horaria de Chile
-    if not check_chile_schedule():
-        sys.exit(0)
-
-    # 1. Validar variables de entorno
+    # 1. Validar variables de entorno requeridas
     config = get_required_env_vars()
 
     # 2. Calcular rango de fechas (Ciclo semanal de Domingo a Sábado en hora de Chile)
@@ -683,15 +693,21 @@ def main() -> None:
 
     today = now_local.date()
 
-    # Si hoy es sábado (el día programado), la semana va exactamente desde el Domingo anterior (hace 6 días) hasta hoy Sábado
-    # Esto cubre exactamente 7 días: Domingo, Lunes, Martes, Miércoles, Jueves, Viernes y Sábado
+    # Si es sábado, el cierre es hoy. Si es domingo (ej. ejecución retrasada a la madrugada), el cierre fue ayer sábado.
     if today.weekday() == 5:  # 5 = Sábado
-        start_date = today - timedelta(days=6)  # Domingo
-        end_date = today                         # Sábado
+        end_date = today
+    elif today.weekday() == 6:  # 6 = Domingo
+        end_date = today - timedelta(days=1)
     else:
         # En caso de pruebas manuales entre semana, toma los últimos 7 días terminando hoy
-        start_date = today - timedelta(days=6)
         end_date = today
+
+    start_date = end_date - timedelta(days=6)  # Domingo de inicio
+    target_sat_str = end_date.strftime("%Y-%m-%d")
+
+    # 0. Verificar si corresponde ejecutar según la zona horaria de Chile y prevención de duplicados
+    if not check_chile_schedule(target_sat_str):
+        sys.exit(0)
 
     from_date = start_date.strftime("%Y-%m-%d")
     to_date = end_date.strftime("%Y-%m-%d")
@@ -738,6 +754,14 @@ def main() -> None:
         text_content=text_body,
         html_content=html_body
     )
+
+    # 8. Guardar marca de semana enviada para evitar duplicados en el siguiente cron
+    try:
+        with open(".sent_marker", "w", encoding="utf-8") as f:
+            f.write(target_sat_str)
+        logger.info("Marca de envío semanal guardada con éxito para %s.", target_sat_str)
+    except Exception as e:
+        logger.warning("No se pudo escribir el archivo marcador: %s", e)
 
     logger.info("Proceso completado exitosamente.")
 

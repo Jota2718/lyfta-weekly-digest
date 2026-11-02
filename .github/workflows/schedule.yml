@@ -2,11 +2,11 @@ name: Weekly Lyfta Workout Digest
 
 on:
   schedule:
-    # Se ejecuta a las 00:00 UTC y a las 01:00 UTC del Domingo.
-    # Estas dos horas cubren de forma exacta las 21:00 hrs (9:00 PM) del Sábado en Chile:
-    # - En Horario de Verano (UTC-3): 00:00 UTC Domingo = 21:00 CLT Sábado.
-    # - En Horario de Invierno (UTC-4): 01:00 UTC Domingo = 21:00 CLT Sábado.
-    - cron: '0 0,1 * * 0'
+    # Se ejecuta a las 00:15 UTC y a las 01:15 UTC del Domingo.
+    # El minuto :15 evita la congestión global de GitHub Actions en el minuto :00.
+    # - En Horario de Verano de Chile (UTC-3): 00:15 UTC = Sábado 21:15 CLT.
+    # - En Horario de Invierno de Chile (UTC-4): 01:15 UTC = Sábado 21:15 CLT.
+    - cron: '15 0,1 * * 0'
   # Permite ejecutar manualmente el pipeline en cualquier momento desde la pestaña 'Actions'
   workflow_dispatch:
 
@@ -25,6 +25,28 @@ jobs:
           python --version
           python -m pip install --no-cache-dir --upgrade pip
           pip install --no-cache-dir -r requirements.txt
+
+      - name: Calcular identificador de semana objetivo
+        run: |
+          python -c "
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
+          now = datetime.now(ZoneInfo('America/Santiago'))
+          today = now.date()
+          if today.weekday() == 5:
+              sat = today
+          elif today.weekday() == 6:
+              sat = today - timedelta(days=1)
+          else:
+              sat = today
+          print(f'TARGET_WEEK={sat.strftime(\"%Y-%m-%d\")}')
+          " >> $GITHUB_ENV
+
+      - name: Restaurar marca de envío semanal
+        uses: actions/cache@v4
+        with:
+          path: .sent_marker
+          key: lyfta-sent-${{ env.TARGET_WEEK }}
 
       - name: Ejecutar script de extracción y envío
         env:
